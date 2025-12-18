@@ -19,6 +19,7 @@ from api.dto import (
     SaveDraftRequest,
     QueryDraftStatusRequest,
     GenerateDraftUrlRequest,
+    GenerateBatchDraftRequest,
 )
 from services import (
     add_video_track,
@@ -33,6 +34,7 @@ from services import (
     query_task_status,
     query_script_impl,
     create_draft,
+    generate_batch_draft,
 )
 from domain.pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
 from domain.pyJianYingDraft.metadata.animation_meta import Intro_type, Outro_type
@@ -440,6 +442,26 @@ def generate_draft_url(body: GenerateDraftUrlRequest) -> dict[str, Any]:
 @router.post('/add_sticker')
 def add_sticker(body: GenerateDraftUrlRequest) -> dict[str, Any]:
     return {"success": False, "output": "", "error": "Not implemented in new routing"}
+
+@router.post('/generate_batch_draft')
+def generate_batch_draft_endpoint(body: GenerateBatchDraftRequest) -> dict[str, Any]:
+    result = {"success": False, "output": "", "error": ""}
+    if not body.video_dir or not body.audio_dir or not body.draft_folder:
+        result["error"] = "Hi, the required parameters 'video_dir', 'audio_dir', or 'draft_folder' are missing."
+        return result
+    try:
+        draft_id, script = generate_batch_draft.generate_draft_from_local_materials(
+            video_dir=body.video_dir,
+            audio_dir=body.audio_dir,
+            draft_folder=body.draft_folder,
+            draft_name=body.draft_name
+        )
+        result["success"] = True
+        result["output"] = {"draft_id": draft_id}
+        return result
+    except Exception as e:
+        result["error"] = f"Error occurred while generating batch draft: {str(e)}."
+        return result
 
 @router.get('/get_intro_animation_types')
 def get_intro_animation_types() -> dict[str, Any]:

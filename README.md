@@ -28,8 +28,8 @@ python -m venv venv
 # macOS/Linux:
 source venv/bin/activate
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装依赖（基于 pyproject.toml）
+pip install -e .
 
 # 启动服务 (默认端口 9001)
 python -m api.server
@@ -37,20 +37,23 @@ python -m api.server
 
 ### 2. 启动前端 (Desktop)
 
-确保已安装 Node.js 18+ 和 Yarn。
+确保已安装 Node.js 18+ 和 pnpm。
 
 ```bash
 # 进入桌面端目录
 cd desktop
 
-# 安装依赖
-yarn
+# 安装依赖（仅使用 pnpm）
+pnpm install
 
 # 启动开发模式
-yarn dev
+pnpm dev
 ```
 
-启动后，桌面应用将自动打开。
+启动后，桌面应用将自动打开，前端预览地址为 `http://localhost:5173/`。
+
+> 注意：前端 `desktop/` 目录只使用 pnpm 管理依赖。
+> 请不要在该目录执行 `npm install` 或 `yarn install`，避免锁文件和依赖树冲突。
 
 ## 🛠️ 开发指南
 
@@ -61,6 +64,6 @@ yarn dev
 
 ```bash
 cd desktop
-yarn build
+pnpm build
 ```
 构建产物将位于 `desktop/dist` 和 `desktop/release` 目录。

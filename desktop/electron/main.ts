@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -31,6 +31,19 @@ function createWindow() {
     win.loadFile(path.join(process.env.DIST, 'index.html'))
   }
 }
+
+ipcMain.handle('open-directory-dialog', async (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender) || win
+  if (!window) return null
+  const result = await dialog.showOpenDialog(window, {
+    properties: ['openDirectory']
+  })
+  if (result.canceled) {
+    return null
+  } else {
+    return result.filePaths[0]
+  }
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

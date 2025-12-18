@@ -200,5 +200,10 @@ class QueryDraftStatusRequest(BaseModel):
     task_id: Optional[str] = None
 
 class GenerateDraftUrlRequest(BaseModel):
-    draft_id: Optional[str] = None
-    draft_folder: Optional[str] = None
+    draft_id: str
+
+class GenerateBatchDraftRequest(BaseModel):
+    video_dir: str
+    audio_dir: str
+    draft_folder: str
+    draft_name: Optional[str] = None
