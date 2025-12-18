@@ -1,0 +1,33 @@
+__pycache__
+ignored
+
+build/
+dist/
+*.egg-info/
+
+.vscode/
+.idea/
+.DS_Store
+
+config.json
+./resource
+output_drafts
+
+.venv/
+venv/
+tmp/
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+
+# Temporary files
+*.tmp
+*.bak
+*.save.bak
+
+# Backup directories
+.backup/
