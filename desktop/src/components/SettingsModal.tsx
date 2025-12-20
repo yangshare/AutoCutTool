@@ -57,7 +57,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="p-6 space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">API Base URL</label>
+            <label className="text-sm font-medium text-slate-700">API 地址</label>
             <input 
               type="text" 
               value={backendUrl}
@@ -68,7 +68,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">下载路径 (Jianying Draft Directory)</label>
+            <label className="text-sm font-medium text-slate-700">剪映草稿目录</label>
             <div className="flex gap-2">
               <input 
                 type="text" 

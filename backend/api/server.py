@@ -1,11 +1,21 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from config import settings
 from infra.logger import logger
 from infra.oss import OSSConfigurationError
 
 app = FastAPI(title="CapCut API", version="1.0.0")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

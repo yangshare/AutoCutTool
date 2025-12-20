@@ -445,21 +445,28 @@ def add_sticker(body: GenerateDraftUrlRequest) -> dict[str, Any]:
 
 @router.post('/generate_batch_draft')
 def generate_batch_draft_endpoint(body: GenerateBatchDraftRequest) -> dict[str, Any]:
+    logger.info(f"Received generate_batch_draft request: {body}")
     result = {"success": False, "output": "", "error": ""}
     if not body.video_dir or not body.audio_dir or not body.draft_folder:
-        result["error"] = "Hi, the required parameters 'video_dir', 'audio_dir', or 'draft_folder' are missing."
+        error_msg = "Hi, the required parameters 'video_dir', 'audio_dir', or 'draft_folder' are missing."
+        logger.warning(error_msg)
+        result["error"] = error_msg
         return result
     try:
         draft_id, script = generate_batch_draft.generate_draft_from_local_materials(
             video_dir=body.video_dir,
             audio_dir=body.audio_dir,
             draft_folder=body.draft_folder,
-            draft_name=body.draft_name
+            draft_name=body.draft_name,
+            image_dir=body.image_dir,
+            image_crop_settings=body.image_crop_settings
         )
+        logger.info(f"Successfully generated batch draft with ID: {draft_id}")
         result["success"] = True
         result["output"] = {"draft_id": draft_id}
         return result
     except Exception as e:
+        logger.error(f"Error occurred while generating batch draft: {str(e)}", exc_info=True)
         result["error"] = f"Error occurred while generating batch draft: {str(e)}."
         return result
 

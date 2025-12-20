@@ -1,16 +1,25 @@
-import { useState, useEffect } from 'react'
-import { Folder, Zap, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Folder, Zap, AlertCircle, CheckCircle2, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 
 export default function GeneratorView() {
   const [videoDirectory, setVideoDirectory] = useState('')
   const [audioDirectory, setAudioDirectory] = useState('')
+  const [imageDirectory, setImageDirectory] = useState('')
   const [draftName, setDraftName] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [backendUrl, setBackendUrl] = useState('http://127.0.0.1:9001')
   const [draftDirectory, setDraftDirectory] = useState('')
+  
+  const [sampleImage, setSampleImage] = useState('')
+  const [crop, setCrop] = useState<Crop>()
+  const [completedCrop, setCompletedCrop] = useState<Crop>()
+  const imgRef = useRef<HTMLImageElement>(null)
+
   const isElectron = typeof window !== 'undefined' && !!(window as any).ipcRenderer && typeof (window as any).ipcRenderer.invoke === 'function'
 
   useEffect(() => {
@@ -21,7 +30,7 @@ export default function GeneratorView() {
     if (savedDraftDir) setDraftDirectory(savedDraftDir)
   }, [])
 
-  const selectDirectory = async (setter: (path: string) => void) => {
+  const selectDirectory = async (setter: (path: string) => void, isImage = false) => {
     if (!isElectron) {
       alert('当前在浏览器预览环境中，无法调用系统目录选择器。请手动输入路径。')
       return
@@ -32,10 +41,29 @@ export default function GeneratorView() {
       console.log('Selected path:', path)
       if (path) {
         setter(path)
+        if (isImage) {
+          fetchFirstImage(path)
+        }
       }
     } catch (err: any) {
       console.error(err)
       alert('目录选择失败：' + (err.message || err))
+    }
+  }
+
+  const fetchFirstImage = async (dirPath: string) => {
+    if (!isElectron) return
+    try {
+      const imageData = await (window as any).ipcRenderer.invoke('get-first-image', dirPath)
+      if (imageData) {
+        setSampleImage(imageData)
+        setCrop(undefined)
+        setCompletedCrop(undefined)
+      } else {
+        setSampleImage('')
+      }
+    } catch (err) {
+      console.error('Error fetching image:', err)
     }
   }
 
@@ -45,18 +73,37 @@ export default function GeneratorView() {
     setError('')
 
     if (!draftDirectory) {
-      setError('Please configure Draft Directory in Settings first.')
+      setError('请先在设置中配置草稿目录。')
       setLoading(false)
       return
     }
 
     if (!videoDirectory || !audioDirectory) {
-      setError('Please select video and audio directories.')
+      setError('请选择视频和音频目录。')
       setLoading(false)
       return
     }
 
     try {
+      let imageCropSettings = undefined
+      if (completedCrop && completedCrop.width > 0 && completedCrop.height > 0) {
+         const x = completedCrop.x / 100
+         const y = completedCrop.y / 100
+         const w = completedCrop.width / 100
+         const h = completedCrop.height / 100
+         
+         imageCropSettings = {
+           upper_left_x: x,
+           upper_left_y: y,
+           upper_right_x: x + w,
+           upper_right_y: y,
+           lower_left_x: x,
+           lower_left_y: y + h,
+           lower_right_x: x + w,
+           lower_right_y: y + h
+         }
+      }
+
       const response = await fetch(`${backendUrl}/generate_batch_draft`, {
         method: 'POST',
         headers: {
@@ -66,19 +113,21 @@ export default function GeneratorView() {
           video_dir: videoDirectory,
           audio_dir: audioDirectory,
           draft_folder: draftDirectory,
-          draft_name: draftName || undefined
+          draft_name: draftName || undefined,
+          image_dir: imageDirectory || undefined,
+          image_crop_settings: imageCropSettings
         })
       })
 
       const data = await response.json()
 
       if (data.success) {
-        setMessage(`Draft generated successfully! ID: ${data.output.draft_id}`)
+        setMessage(`草稿生成成功! ID: ${data.output.draft_id}`)
       } else {
-        setError(`Failed: ${data.error}`)
+        setError(`失败: ${data.error}`)
       }
     } catch (err: any) {
-      setError(`Network error: ${err.message}`)
+      setError(`网络错误: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -95,13 +144,13 @@ export default function GeneratorView() {
         {/* Left: Inputs */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 space-y-6">
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">Video Materials Directory</label>
+            <label className="block text-sm font-semibold text-slate-700">视频素材目录</label>
             <div className="flex gap-2">
               <input 
                 type="text" 
                 value={videoDirectory}
                 onChange={(e) => setVideoDirectory(e.target.value)}
-                placeholder="Select video directory..."
+                placeholder="选择视频目录..."
                 className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
               <button 
@@ -114,13 +163,13 @@ export default function GeneratorView() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">Audio Materials Directory</label>
+            <label className="block text-sm font-semibold text-slate-700">音频素材目录</label>
             <div className="flex gap-2">
               <input 
                 type="text" 
                 value={audioDirectory}
                 onChange={(e) => setAudioDirectory(e.target.value)}
-                placeholder="Select audio directory..."
+                placeholder="选择音频目录..."
                 className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
               <button 
@@ -133,12 +182,31 @@ export default function GeneratorView() {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">Draft Name (Optional)</label>
+            <label className="block text-sm font-semibold text-slate-700">图片素材目录 (选填)</label>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={imageDirectory}
+                onChange={(e) => setImageDirectory(e.target.value)}
+                placeholder="选择图片目录..."
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+              <button 
+                onClick={() => selectDirectory(setImageDirectory, true)}
+                className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <Folder className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">草稿名称 (选填)</label>
             <input 
               type="text" 
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              placeholder="Enter draft name..." 
+              placeholder="输入草稿名称..." 
               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
           </div>
@@ -152,7 +220,7 @@ export default function GeneratorView() {
             )}
           >
             <Zap className="w-5 h-5 fill-current" />
-            {loading ? 'Generating...' : '生成内容'}
+            {loading ? '生成中...' : '生成内容'}
           </button>
 
           {message && (
@@ -170,13 +238,34 @@ export default function GeneratorView() {
           )}
         </div>
 
-        {/* Right: Preview (Placeholder) */}
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center min-h-[400px] text-slate-400">
-          <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-             <Folder className="w-10 h-10 text-slate-300" />
-          </div>
-          <p className="font-medium">预览区域 (待开发)</p>
-          <p className="text-sm mt-2 text-slate-400">生成的内容将在此处显示预览</p>
+        {/* Right: Preview */}
+        <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center min-h-[400px] text-slate-400 overflow-hidden relative">
+          {sampleImage ? (
+            <div className="w-full h-full flex flex-col items-center">
+              <p className="text-slate-700 font-medium mb-4">请框选图片需要保留的区域</p>
+              <ReactCrop
+                crop={crop}
+                onChange={(c, p) => setCrop(p)}
+                onComplete={(c, p) => setCompletedCrop(p)}
+                className="max-h-[500px]"
+              >
+                <img 
+                  ref={imgRef}
+                  src={sampleImage} 
+                  alt="Sample" 
+                  className="max-w-full max-h-[500px] object-contain"
+                />
+              </ReactCrop>
+            </div>
+          ) : (
+            <>
+              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                 <ImageIcon className="w-10 h-10 text-slate-300" />
+              </div>
+              <p className="font-medium">图片预览区域</p>
+              <p className="text-sm mt-2 text-slate-400">选择图片目录后，在此处设置裁剪区域</p>
+            </>
+          )}
         </div>
       </div>
     </div>

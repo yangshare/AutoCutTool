@@ -207,3 +207,5 @@ class GenerateBatchDraftRequest(BaseModel):
     audio_dir: str
     draft_folder: str
     draft_name: Optional[str] = None
+    image_dir: Optional[str] = None
+    image_crop_settings: Optional[dict] = None

@@ -4,27 +4,33 @@ import shutil
 import json
 import time
 from typing import List, Optional
-from domain.pyJianYingDraft import Script_file, Video_material, Audio_material, Video_segment, Audio_segment, trange, Clip_settings
+from domain.pyJianYingDraft import Script_file, Video_material, Audio_material, Video_segment, Audio_segment, trange, Clip_settings, Crop_settings
 from domain.pyJianYingDraft import Track_type
 from services.create_draft import get_or_create_draft
 from infra.cache_service import draft_cache
 from config import settings
+from infra.logger import logger
 
 def generate_draft_from_local_materials(
     video_dir: str,
     audio_dir: str,
     draft_folder: str,
-    draft_name: Optional[str] = None
+    image_dir: Optional[str] = None,
+    draft_name: Optional[str] = None,
+    image_crop_settings: Optional[dict] = None
 ):
     """
     Generate a draft from local video and audio directories.
+    If image_dir is provided and audio is longer than video, images will fill the gap.
     """
+    logger.info(f"Starting batch draft generation. Video dir: {video_dir}, Audio dir: {audio_dir}, Image dir: {image_dir}, Draft folder: {draft_folder}")
     # 1. Create a new draft in memory
     draft_id, script = get_or_create_draft()
     
     # 2. Scan directories
     video_extensions = ['*.mp4', '*.mov', '*.avi', '*.mkv']
     audio_extensions = ['*.mp3', '*.wav', '*.aac', '*.m4a']
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.webp']
     
     video_files = []
     if os.path.exists(video_dir):
@@ -35,12 +41,76 @@ def generate_draft_from_local_materials(
     if os.path.exists(audio_dir):
         for ext in audio_extensions:
             audio_files.extend(glob.glob(os.path.join(audio_dir, ext)))
+            
+    image_files = []
+    if image_dir and os.path.exists(image_dir):
+        for ext in image_extensions:
+            image_files.extend(glob.glob(os.path.join(image_dir, ext)))
         
     video_files.sort()
     audio_files.sort()
+    image_files.sort()
+    logger.info(f"Found {len(video_files)} video files, {len(audio_files)} audio files, and {len(image_files)} image files.")
     
-    # 3. Add Video Track
-    if video_files:
+    # 3. Pre-process materials to calculate durations
+    video_materials = []
+    total_video_duration = 0
+    
+    for v_path in video_files:
+        try:
+            v_path = os.path.abspath(v_path)
+            logger.info(f"Processing video file: {v_path}")
+            material = Video_material(
+                material_type="video",
+                path=v_path,
+                replace_path=v_path 
+            )
+            video_materials.append(material)
+            total_video_duration += material.duration
+        except Exception as e:
+            logger.error(f"Skipping video {v_path}: {e}")
+            continue
+
+    audio_materials = []
+    total_audio_duration = 0
+    
+    for a_path in audio_files:
+        try:
+            a_path = os.path.abspath(a_path)
+            logger.info(f"Processing audio file: {a_path}")
+            material = Audio_material(
+                path=a_path,
+                replace_path=a_path
+            )
+            audio_materials.append(material)
+            total_audio_duration += material.duration
+        except Exception as e:
+            logger.error(f"Skipping audio {a_path}: {e}")
+            continue
+
+    # 4. Calculate image duration if needed
+    image_materials_config = [] # List of (path, duration_us)
+    
+    if image_files and total_audio_duration > total_video_duration:
+        remaining_duration = total_audio_duration - total_video_duration
+        num_images = len(image_files)
+        per_image_duration = remaining_duration // num_images
+        remainder = remaining_duration % num_images
+        
+        logger.info(f"Audio duration ({total_audio_duration}us) > Video duration ({total_video_duration}us). Filling gap ({remaining_duration}us) with {num_images} images.")
+        
+        for idx, img_path in enumerate(image_files):
+            duration = per_image_duration
+            if idx == num_images - 1:
+                duration += remainder # Add remainder to last image
+            
+            image_materials_config.append((img_path, duration))
+            
+    elif image_files:
+        logger.info("Images found but audio duration is not longer than video duration, or no audio. Images will not be added.")
+    
+    # 5. Add Video Track (Videos + Images)
+    if video_materials or image_materials_config:
         try:
             script.get_track(Track_type.video)
         except:
@@ -48,23 +118,13 @@ def generate_draft_from_local_materials(
             
         current_time = 0 # microseconds
         
-        for v_path in video_files:
-            try:
-                # normalize path
-                v_path = os.path.abspath(v_path)
-                material = Video_material(
-                    material_type="video",
-                    path=v_path,
-                    replace_path=v_path 
-                )
-            except Exception as e:
-                print(f"Skipping video {v_path}: {e}")
-                continue
-            
+        # Add Videos
+        for material in video_materials:
             duration_us = material.duration
+            logger.info(f"Adding video segment: {material.material_name}, Duration: {duration_us}us")
             
             source_timerange = trange(0, duration_us)
-            target_timerange = trange(current_time, current_time + duration_us)
+            target_timerange = trange(current_time, duration_us)
             
             segment = Video_segment(
                 material=material,
@@ -74,9 +134,56 @@ def generate_draft_from_local_materials(
             
             script.add_segment(segment)
             current_time += duration_us
+            
+        # Add Images
+        for img_path, duration_us in image_materials_config:
+            try:
+                img_path = os.path.abspath(img_path)
+                logger.info(f"Processing image file: {img_path}")
+                
+                # Create crop settings if provided
+                crop = Crop_settings()
+                if image_crop_settings:
+                    crop = Crop_settings(
+                        upper_left_x=image_crop_settings.get("upper_left_x", 0.0),
+                        upper_left_y=image_crop_settings.get("upper_left_y", 0.0),
+                        upper_right_x=image_crop_settings.get("upper_right_x", 1.0),
+                        upper_right_y=image_crop_settings.get("upper_right_y", 0.0),
+                        lower_left_x=image_crop_settings.get("lower_left_x", 0.0),
+                        lower_left_y=image_crop_settings.get("lower_left_y", 1.0),
+                        lower_right_x=image_crop_settings.get("lower_right_x", 1.0),
+                        lower_right_y=image_crop_settings.get("lower_right_y", 1.0)
+                    )
 
-    # 4. Add Audio Track
-    if audio_files:
+                # Create material
+                material = Video_material(
+                    material_type="photo",
+                    path=img_path,
+                    replace_path=img_path,
+                    crop_settings=crop
+                )
+                
+                logger.info(f"Adding image segment: {material.material_name}, Duration: {duration_us}us")
+                
+                # For images, source timerange starts at 0 and has length of target duration
+                source_timerange = trange(0, duration_us)
+                target_timerange = trange(current_time, duration_us)
+                
+                segment = Video_segment(
+                    material=material,
+                    source_timerange=source_timerange,
+                    target_timerange=target_timerange
+                )
+                
+                script.add_segment(segment)
+                current_time += duration_us
+                
+            except Exception as e:
+                logger.error(f"Skipping image {img_path}: {e}")
+                continue
+
+    # 6. Add Audio Track
+    if audio_materials:
         try:
             script.get_track(Track_type.audio)
         except:
@@ -84,21 +191,12 @@ def generate_draft_from_local_materials(
             
         current_time = 0
         
-        for a_path in audio_files:
-            try:
-                a_path = os.path.abspath(a_path)
-                material = Audio_material(
-                    path=a_path,
-                    replace_path=a_path
-                )
-            except Exception as e:
-                print(f"Skipping audio {a_path}: {e}")
-                continue
-                
+        for material in audio_materials:
             duration_us = material.duration
+            logger.info(f"Adding audio segment: {material.material_name}, Duration: {duration_us}us")
             
             source_timerange = trange(0, duration_us)
-            target_timerange = trange(current_time, current_time + duration_us)
+            target_timerange = trange(current_time, duration_us)
             
             segment = Audio_segment(
                 material=material,
@@ -109,7 +207,7 @@ def generate_draft_from_local_materials(
             script.add_segment(segment)
             current_time += duration_us
 
-    # 5. Save Draft to Disk
+    # 7. Save Draft to Disk
     # Determine template directory
     # Go up 2 levels from this file (services) -> backend -> template_jianying
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -141,4 +239,5 @@ def generate_draft_from_local_materials(
         with open(meta_path, 'w', encoding='utf-8') as f:
             json.dump(meta, f, ensure_ascii=False, indent=4)
             
+    logger.info(f"Draft generation completed successfully. ID: {draft_id}")
     return draft_id, script
