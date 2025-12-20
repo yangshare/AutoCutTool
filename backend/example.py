@@ -2,12 +2,23 @@ import requests
 import json
 import sys
 import time
-from settings.local import PORT
-from util import timing_decorator
+try:
+    from config.settings import settings
+    PORT = settings.PORT
+except ImportError:
+    PORT = 9001
+try:
+    from infra.util import timing_decorator, hex_to_rgb
+except ImportError:
+    # Mock if not found or running standalone without path setup
+    def timing_decorator(func):
+        return func
+    def hex_to_rgb(hex_str):
+        return (1.0, 1.0, 1.0)
+
 import functools
 import threading
-from pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
-from util import hex_to_rgb
+from domain.pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
 
 import shutil
 import os

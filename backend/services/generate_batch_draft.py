@@ -7,6 +7,8 @@ from typing import List, Optional
 from domain.pyJianYingDraft import Script_file, Video_material, Audio_material, Video_segment, Audio_segment, trange, Clip_settings, Crop_settings
 from domain.pyJianYingDraft import Track_type
 from services.create_draft import get_or_create_draft
+from .add_text_impl import add_text_impl
+from .add_effect_impl import add_effect_impl
 from infra.cache_service import draft_cache
 from config import settings
 from infra.logger import logger
@@ -110,6 +112,7 @@ def generate_draft_from_local_materials(
         logger.info("Images found but audio duration is not longer than video duration, or no audio. Images will not be added.")
     
     # 5. Add Video Track (Videos + Images)
+    total_video_duration_us = 0
     if video_materials or image_materials_config:
         try:
             script.get_track(Track_type.video)
@@ -181,6 +184,8 @@ def generate_draft_from_local_materials(
             except Exception as e:
                 logger.error(f"Skipping image {img_path}: {e}")
                 continue
+        
+        total_video_duration_us = current_time
 
     # 6. Add Audio Track
     if audio_materials:
@@ -206,6 +211,97 @@ def generate_draft_from_local_materials(
             
             script.add_segment(segment)
             current_time += duration_us
+
+    # 6.5 Add Rich Elements (Watermark, Disclaimer, Effects, Filter)
+    total_duration_sec = total_video_duration_us / 1000000.0
+    if total_duration_sec > 0:
+        logger.info(f"Adding rich draft elements. Duration: {total_duration_sec}s")
+        
+        # Add Watermark
+        try:
+            add_text_impl(
+                text="@水印",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                transform_y=0.8,
+                transform_x=0.8, # Bottom right
+                font=None,
+                font_color="#FFFFFF",
+                font_alpha=0.5,
+                track_name="watermark"
+            )
+        except Exception as e:
+            logger.error(f"Failed to add watermark: {e}")
+
+        # Add Disclaimer
+        try:
+            add_text_impl(
+                text="故事虚构 请勿模仿",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                transform_y=0.85, # Bottom center
+                font=None,
+                font_size=6.0,
+                font_color="#CCCCCC",
+                track_name="disclaimer"
+            )
+        except Exception as e:
+            logger.error(f"Failed to add disclaimer: {e}")
+
+        # Add Common Template Text
+        try:
+            add_text_impl(
+                text="通用模板",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                transform_y=-0.8, # Top
+                font=None,
+                font_color="#FFFFFF",
+                track_name="template_text"
+            )
+        except Exception as e:
+            logger.error(f"Failed to add template text: {e}")
+
+        # Add Filter (HD)
+        try:
+            add_effect_impl(
+                effect_type="高清",
+                effect_category="filter",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                track_name="filter_hd"
+            )
+        except Exception as e:
+             logger.error(f"Failed to add filter: {e}")
+
+        # Add Effects
+        try:
+            add_effect_impl(
+                effect_type="圣诞星光", # Sparkle substitute (Valid in Video_scene_effect_type)
+                effect_category="scene",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                track_name="effect_sparkle"
+            )
+        except Exception as e:
+            logger.error(f"Failed to add sparkle effect: {e}")
+            
+        try:
+            add_effect_impl(
+                effect_type="_1998", # Retro substitute
+                effect_category="scene",
+                start=0,
+                end=total_duration_sec,
+                draft_id=draft_id,
+                track_name="effect_retro"
+            )
+        except Exception as e:
+            logger.error(f"Failed to add retro effect: {e}")
 
     # 7. Save Draft to Disk
     # Determine template directory

@@ -1,4 +1,4 @@
-from domain.pyJianYingDraft import trange, Video_scene_effect_type, Video_character_effect_type, CapCut_Video_scene_effect_type, CapCut_Video_character_effect_type, exceptions
+from domain.pyJianYingDraft import trange, Video_scene_effect_type, Video_character_effect_type, CapCut_Video_scene_effect_type, CapCut_Video_character_effect_type, Filter_type, exceptions
 import domain.pyJianYingDraft as draft
 from typing import Optional, Dict, List, Union, Literal
 from .create_draft import get_or_create_draft
@@ -7,7 +7,7 @@ from config import settings
 
 def add_effect_impl(
     effect_type: str,  # Changed to string type
-    effect_category: Literal["scene", "character"],
+    effect_category: Literal["scene", "character", "filter"],
     start: float = 0,
     end: float = 3.0,
     draft_id: Optional[str] = None,
@@ -18,13 +18,13 @@ def add_effect_impl(
 ) -> Dict[str, str]:
     """
     Add an effect to the specified draft
-    :param effect_type: Effect type name, will be matched from Video_scene_effect_type or Video_character_effect_type
-    :param effect_category: Effect category, "scene" or "character", default "scene"
+    :param effect_type: Effect type name, will be matched from Video_scene_effect_type or Video_character_effect_type or Filter_type
+    :param effect_category: Effect category, "scene", "character" or "filter", default "scene"
     :param start: Start time (seconds), default 0
     :param end: End time (seconds), default 3 seconds
     :param draft_id: Draft ID, if None or corresponding zip file not found, a new draft will be created
     :param track_name: Track name, can be omitted when there is only one effect track
-    :param params: Effect parameter list, items not provided or None in the parameter list will use default values
+    :param params: Effect parameter list, items not provided or None in the parameter list will use default values. For filter, params[0] is intensity.
     :param width: Video width, default 1080
     :param height: Video height, default 1920
     :return: Updated draft information
@@ -54,6 +54,13 @@ def add_effect_impl(
                 effect_enum = CapCut_Video_character_effect_type[effect_type]
             except:
                 effect_enum = None
+        elif effect_category == "filter":
+             # CapCut might share Filter_type or have CapCut_Filter_type?
+             # Assuming Filter_type is common or compatible for now as I didn't see CapCut_Filter_type
+             try:
+                effect_enum = Filter_type[effect_type]
+             except:
+                effect_enum = None
     else:
         # Default to using JianYing effects
         if effect_category == "scene":
@@ -66,23 +73,47 @@ def add_effect_impl(
                 effect_enum = Video_character_effect_type[effect_type]
             except:
                 effect_enum = None
+        elif effect_category == "filter":
+            try:
+                effect_enum = Filter_type[effect_type]
+            except:
+                effect_enum = None
     
     if effect_enum is None:
         raise ValueError(f"Unknown {effect_category} effect type: {effect_type}")
 
-    # Add effect track (only when track doesn't exist)
-    if track_name is not None:
-        try:
-            imported_track=script.get_imported_track(draft.Track_type.effect, name=track_name)
-            # If no exception is thrown, the track already exists
-        except exceptions.TrackNotFound:
-            # Track doesn't exist, create a new track
-            script.add_track(draft.Track_type.effect, track_name=track_name)
+    if effect_category == "filter":
+        # Handle Filter
+        intensity = 100.0
+        if params and len(params) > 0 and params[0] is not None:
+            intensity = float(params[0])
+            
+        # Add filter track (only when track doesn't exist)
+        if track_name is not None:
+            try:
+                script.get_imported_track(draft.Track_type.filter, name=track_name)
+            except exceptions.TrackNotFound:
+                script.add_track(draft.Track_type.filter, track_name=track_name)
+        else:
+            script.add_track(draft.Track_type.filter)
+            
+        script.add_filter(effect_enum, t_range, track_name=track_name, intensity=intensity)
+        
     else:
-        script.add_track(draft.Track_type.effect)
+        # Handle Video Effect
+        # Add effect track (only when track doesn't exist)
+        if track_name is not None:
+            try:
+                script.get_imported_track(draft.Track_type.effect, name=track_name)
+                # If no exception is thrown, the track already exists
+            except exceptions.TrackNotFound:
+                # Track doesn't exist, create a new track
+                script.add_track(draft.Track_type.effect, track_name=track_name)
+        else:
+            script.add_track(draft.Track_type.effect)
 
-    # Add effect
-    script.add_effect(effect_enum, t_range, params=params[::-1], track_name=track_name)
+        # Add effect
+        script.add_effect(effect_enum, t_range, params=params[::-1] if params else None, track_name=track_name)
 
     return {
         "draft_id": draft_id,
