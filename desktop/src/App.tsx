@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Sidebar from './components/Sidebar'
 import GeneratorView from './components/GeneratorView'
 import SettingsModal from './components/SettingsModal'

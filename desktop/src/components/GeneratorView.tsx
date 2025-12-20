@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Folder, Zap, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -23,17 +23,19 @@ export default function GeneratorView() {
 
   const selectDirectory = async (setter: (path: string) => void) => {
     if (!isElectron) {
-      alert('当前在浏览器预览环境中，无法调用系统目录选择器。请在桌面应用中使用，或手动输入路径。')
+      alert('当前在浏览器预览环境中，无法调用系统目录选择器。请手动输入路径。')
       return
     }
     try {
+      console.log('Invoking open-directory-dialog')
       const path = await (window as any).ipcRenderer.invoke('open-directory-dialog')
+      console.log('Selected path:', path)
       if (path) {
         setter(path)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert('目录选择失败：' + err)
+      alert('目录选择失败：' + (err.message || err))
     }
   }
 
@@ -85,8 +87,8 @@ export default function GeneratorView() {
   return (
     <div className="p-10 h-full flex flex-col bg-slate-50 text-slate-900">
       <header className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">AI 图文内容生成器</h1>
-        <p className="text-slate-500">输入主题，一键生成精美图文卡片 (模拟文案)</p>
+        <h1 className="text-3xl font-bold text-slate-800 mb-2">剪映草稿生成器</h1>
+        <p className="text-slate-500">选好视频和音频素材，一键生成精美草稿 </p>
       </header>
 
       <div className="max-w-5xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-8">

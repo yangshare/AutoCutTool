@@ -1,21 +1,46 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-process.env.DIST = path.join(__dirname, '../dist')
-process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
+const dist = path.join(__dirname, '../dist')
+process.env.DIST = dist
+process.env.VITE_PUBLIC = app.isPackaged ? dist : path.join(dist, '../public')
+
+const DIST = process.env.DIST
+const VITE_PUBLIC = process.env.VITE_PUBLIC
+if (!DIST) throw new Error('DIST is not set')
+if (!VITE_PUBLIC) throw new Error('VITE_PUBLIC is not set')
 
 let win: BrowserWindow | null
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
+function resolvePreloadPath() {
+  const candidates = [
+    path.join(__dirname, 'preload.cjs'),
+    path.join(__dirname, 'preload.js'),
+    path.join(__dirname, 'preload.mjs'),
+    path.join(__dirname, '../dist-electron/preload.cjs'),
+    path.join(__dirname, '../dist-electron/preload.js'),
+    path.join(__dirname, '../dist-electron/preload.mjs'),
+  ]
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return candidates[0]
+}
+
 function createWindow() {
+  const preloadPath = resolvePreloadPath()
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(VITE_PUBLIC, 'electron-vite.svg'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   })
 
@@ -28,7 +53,7 @@ function createWindow() {
     win.loadURL(VITE_DEV_SERVER_URL)
   } else {
     // win.loadFile('dist/index.html')
-    win.loadFile(path.join(process.env.DIST, 'index.html'))
+    win.loadFile(path.join(DIST, 'index.html'))
   }
 }
 

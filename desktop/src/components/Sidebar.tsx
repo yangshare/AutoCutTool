@@ -1,4 +1,3 @@
-import React from 'react'
 import { LayoutTemplate, Settings, Video, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

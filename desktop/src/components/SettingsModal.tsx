@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Folder, Save } from 'lucide-react'
 
 interface SettingsModalProps {
@@ -20,17 +20,19 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
   const selectDraftDirectory = async () => {
     if (!isElectron) {
-      alert('当前在浏览器预览环境中，无法调用系统目录选择器。请在桌面应用中使用，或手动输入路径。')
+      alert('当前在浏览器预览环境中，无法调用系统目录选择器。请手动输入路径。')
       return
     }
     try {
+      console.log('Invoking open-directory-dialog')
       const path = await (window as any).ipcRenderer.invoke('open-directory-dialog')
+      console.log('Selected path:', path)
       if (path) {
         setDraftDirectory(path)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to open directory dialog:', error)
-      alert('Failed to open目录选择器失败，请查看控制台。')
+      alert(`目录选择器调用失败: ${error.message || error}`)
     }
   }
 
@@ -73,7 +75,6 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                 value={draftDirectory}
                 onChange={(e) => setDraftDirectory(e.target.value)}
                 className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                readOnly={isElectron}
               />
               <button 
                 onClick={selectDraftDirectory}
