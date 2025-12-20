@@ -126,6 +126,28 @@ def add_text_impl(
         height=height
     )
 
+    # Note: Based on recent feedback, Jianying might use pixel coordinates directly in some versions
+    # or a different normalization.
+    # The previous auto-conversion logic (dividing by width/height if > 2.0) is kept for compatibility
+    # but we should be aware that users might want to pass large values directly.
+    # However, if user passes 100 and it becomes 384000, it suggests a coordinate system mismatch.
+    # If 100 pixels is intended, but Jianying treats small float as ratio, then 0.052 is ratio.
+    # If Jianying treats 100 as 100 pixels, then it should be fine.
+    # The user reported 100 -> 384000.
+    # If I removed the conversion, 100 would be passed as 100.
+    # If I keep the conversion, 100 becomes 100/1920 = 0.052.
+    # If 0.052 results in 100 pixels in UI, then my conversion is correct.
+    # BUT user said "I set 100 but saw 384000". This implies I passed 100 directly (before my fix)
+    # and Jianying interpreted 100 as a HUGE ratio (100 * width/2 ??).
+    # So my fix to divide by width/height IS correct for normalization.
+    
+    # Auto-convert pixel coordinates to normalized coordinates if values are large
+    # Threshold 2.0 is used because normalized coordinates are typically within [-1.0, 1.0]
+    if abs(transform_x) > 2.0:
+        transform_x = transform_x / width
+    if abs(transform_y) > 2.0:
+        transform_y = transform_y / height
+
     # Add text track
     if track_name is not None:
         try:

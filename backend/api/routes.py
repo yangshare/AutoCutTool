@@ -20,6 +20,8 @@ from api.dto import (
     QueryDraftStatusRequest,
     GenerateDraftUrlRequest,
     GenerateBatchDraftRequest,
+    TemplateCreateRequest,
+    TemplateUpdateRequest,
 )
 from services import (
     add_video_track,
@@ -35,6 +37,7 @@ from services import (
     query_script_impl,
     create_draft,
     generate_batch_draft,
+    template_service,
 )
 from domain.pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
 from domain.pyJianYingDraft.metadata.animation_meta import Intro_type, Outro_type
@@ -459,7 +462,8 @@ def generate_batch_draft_endpoint(body: GenerateBatchDraftRequest) -> dict[str, 
             draft_folder=body.draft_folder,
             draft_name=body.draft_name,
             image_dir=body.image_dir,
-            image_crop_settings=body.image_crop_settings
+            image_crop_settings=body.image_crop_settings,
+            template_id=body.template_id
         )
         logger.info(f"Successfully generated batch draft with ID: {draft_id}")
         result["success"] = True
@@ -468,6 +472,79 @@ def generate_batch_draft_endpoint(body: GenerateBatchDraftRequest) -> dict[str, 
     except Exception as e:
         logger.error(f"Error occurred while generating batch draft: {str(e)}", exc_info=True)
         result["error"] = f"Error occurred while generating batch draft: {str(e)}."
+        return result
+
+@router.get('/templates')
+def list_templates() -> dict[str, Any]:
+    result = {"success": True, "output": "", "error": ""}
+    try:
+        templates = template_service.template_service.list_templates()
+        result["output"] = templates
+        return result
+    except Exception as e:
+        result["success"] = False
+        result["error"] = f"Error occurred while listing templates: {str(e)}"
+        return result
+
+@router.post('/templates')
+def create_template(body: TemplateCreateRequest) -> dict[str, Any]:
+    result = {"success": True, "output": "", "error": ""}
+    try:
+        template = template_service.template_service.create_template(body.name, body.tracks)
+        result["output"] = template
+        return result
+    except Exception as e:
+        result["success"] = False
+        result["error"] = f"Error occurred while creating template: {str(e)}"
+        return result
+
+@router.get('/templates/{template_id}')
+def get_template(template_id: str) -> dict[str, Any]:
+    result = {"success": True, "output": "", "error": ""}
+    try:
+        template = template_service.template_service.get_template(template_id)
+        if not template:
+            result["success"] = False
+            result["error"] = f"Template {template_id} not found"
+            return result
+        result["output"] = template
+        return result
+    except Exception as e:
+        result["success"] = False
+        result["error"] = f"Error occurred while getting template: {str(e)}"
+        return result
+
+@router.put('/templates/{template_id}')
+def update_template(template_id: str, body: TemplateUpdateRequest) -> dict[str, Any]:
+    result = {"success": True, "output": "", "error": ""}
+    try:
+        data = body.dict(exclude_unset=True)
+        template = template_service.template_service.update_template(template_id, data)
+        if not template:
+            result["success"] = False
+            result["error"] = f"Template {template_id} not found"
+            return result
+        result["output"] = template
+        return result
+    except Exception as e:
+        result["success"] = False
+        result["error"] = f"Error occurred while updating template: {str(e)}"
+        return result
+
+@router.delete('/templates/{template_id}')
+def delete_template(template_id: str) -> dict[str, Any]:
+    result = {"success": True, "output": "", "error": ""}
+    try:
+        success = template_service.template_service.delete_template(template_id)
+        if not success:
+            result["success"] = False
+            result["error"] = f"Template {template_id} not found"
+            return result
+        result["output"] = {"deleted": True}
+        return result
+    except Exception as e:
+        result["success"] = False
+        result["error"] = f"Error occurred while deleting template: {str(e)}"
         return result
 
 @router.get('/get_intro_animation_types')

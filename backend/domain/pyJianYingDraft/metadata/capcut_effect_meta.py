@@ -2317,6 +2317,7 @@ class CapCut_Video_scene_effect_type(Effect_enum):
         - effects_adjust_speed: 默认0.33, 0.00 ~ 1.00
         - effects_adjust_background_animation: 默认1.00, 0.00 ~ 1.00
     """
+    圣诞星光 = Xmas_Stars
     Xmas_Stars_1 = Effect_meta("Xmas Stars", False, "6767219683901837832", "15207816", "3e41badb29cc40f017f2ece636d26557", [
                               Effect_param("effects_adjust_speed", 0.330, 0.000, 1.000),
                               Effect_param("effects_adjust_background_animation", 1.000, 0.000, 1.000)])

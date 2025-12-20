@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Folder, Zap, AlertCircle, CheckCircle2, Image as ImageIcon } from 'lucide-react'
+import { Folder, Zap, AlertCircle, CheckCircle2, Image as ImageIcon, LayoutTemplate } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
+
+interface Template {
+  id: string
+  name: string
+}
 
 export default function GeneratorView() {
   const [videoDirectory, setVideoDirectory] = useState('')
@@ -15,6 +20,9 @@ export default function GeneratorView() {
   const [backendUrl, setBackendUrl] = useState('http://127.0.0.1:9001')
   const [draftDirectory, setDraftDirectory] = useState('')
   
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+
   const [sampleImage, setSampleImage] = useState('')
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<Crop>()
@@ -28,7 +36,21 @@ export default function GeneratorView() {
     
     const savedDraftDir = localStorage.getItem('draftDirectory')
     if (savedDraftDir) setDraftDirectory(savedDraftDir)
+    
+    fetchTemplates(savedUrl || 'http://127.0.0.1:9001')
   }, [])
+
+  const fetchTemplates = async (url: string) => {
+    try {
+      const res = await fetch(`${url}/templates`)
+      const data = await res.json()
+      if (data.success) {
+        setTemplates(data.output)
+      }
+    } catch (err) {
+      console.error('Failed to fetch templates:', err)
+    }
+  }
 
   const selectDirectory = async (setter: (path: string) => void, isImage = false) => {
     if (!isElectron) {
@@ -115,7 +137,8 @@ export default function GeneratorView() {
           draft_folder: draftDirectory,
           draft_name: draftName || undefined,
           image_dir: imageDirectory || undefined,
-          image_crop_settings: imageCropSettings
+          image_crop_settings: imageCropSettings,
+          template_id: selectedTemplateId || undefined
         })
       })
 
@@ -197,6 +220,23 @@ export default function GeneratorView() {
               >
                 <Folder className="w-5 h-5" />
               </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">选择模板 (选填)</label>
+            <div className="relative">
+              <select 
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-white"
+              >
+                <option value="">默认模板 (内置效果)</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <LayoutTemplate className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
             </div>
           </div>
 

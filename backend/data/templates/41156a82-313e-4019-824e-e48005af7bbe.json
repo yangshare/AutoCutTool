@@ -1,0 +1,50 @@
+{
+  "id": "41156a82-313e-4019-824e-e48005af7bbe",
+  "name": "新模板1",
+  "created_at": 1766243611870,
+  "updated_at": 1766244643485,
+  "tracks": {
+    "texts": [
+      {
+        "text": "新文本1",
+        "start": 0,
+        "end": 5,
+        "font_size": 8,
+        "font_color": "#FFFFFF",
+        "font_alpha": 1,
+        "bold": true,
+        "transform_x": 0,
+        "transform_y": 100,
+        "is_full_duration": true
+      },
+      {
+        "text": "新文本2",
+        "start": 0,
+        "end": 5,
+        "font_size": 8,
+        "font_color": "#FFFFFF",
+        "font_alpha": 1,
+        "bold": false,
+        "transform_x": 0,
+        "transform_y": 200,
+        "is_full_duration": true
+      }
+    ],
+    "effects": [
+      {
+        "effect_type": "圣诞星光",
+        "start": 0,
+        "end": 5,
+        "is_full_duration": true
+      }
+    ],
+    "filters": [
+      {
+        "effect_type": "高清",
+        "start": 0,
+        "end": 5,
+        "is_full_duration": true
+      }
+    ]
+  }
+}

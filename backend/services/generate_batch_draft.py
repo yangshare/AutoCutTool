@@ -6,10 +6,13 @@ import time
 from typing import List, Optional
 from domain.pyJianYingDraft import Script_file, Video_material, Audio_material, Video_segment, Audio_segment, trange, Clip_settings, Crop_settings
 from domain.pyJianYingDraft import Track_type
+from domain.pyJianYingDraft.text_segment import TextStyleRange, Text_style, Text_border
 from services.create_draft import get_or_create_draft
 from .add_text_impl import add_text_impl
 from .add_effect_impl import add_effect_impl
+from services.template_service import template_service
 from infra.cache_service import draft_cache
+from infra.util import hex_to_rgb
 from config import settings
 from infra.logger import logger
 
@@ -19,7 +22,8 @@ def generate_draft_from_local_materials(
     draft_folder: str,
     image_dir: Optional[str] = None,
     draft_name: Optional[str] = None,
-    image_crop_settings: Optional[dict] = None
+    image_crop_settings: Optional[dict] = None,
+    template_id: Optional[str] = None
 ):
     """
     Generate a draft from local video and audio directories.
@@ -213,8 +217,131 @@ def generate_draft_from_local_materials(
             current_time += duration_us
 
     # 6.5 Add Rich Elements (Watermark, Disclaimer, Effects, Filter)
-    total_duration_sec = total_video_duration_us / 1000000.0
-    if total_duration_sec > 0:
+    # Ensure duration covers both video and audio
+    max_duration_us = max(total_video_duration_us, total_audio_duration)
+    total_duration_sec = max_duration_us / 1000000.0
+
+    template = None
+    if template_id:
+        template = template_service.get_template(template_id)
+        if not template:
+            logger.warning(f"Template {template_id} not found, falling back to default rich elements.")
+
+    if template:
+        logger.info(f"Applying template: {template['name']}")
+        tracks = template.get("tracks", {})
+        
+        # Apply Text Tracks
+        for i, track in enumerate(tracks.get("texts", [])):
+             try:
+                # Determine end time
+                end_time = track.get("end", 0)
+                if track.get("is_full_duration", False) or end_time <= 0:
+                    end_time = total_duration_sec
+                
+                # Handle text styles if present
+                text_styles = None
+                if track.get("text_styles"):
+                    text_styles = []
+                    for style_data in track.get("text_styles"):
+                        style_dict = style_data.get("style", {})
+                        border_dict = style_data.get("border", {})
+                        
+                        style = Text_style(
+                            size=style_dict.get('size', track.get("font_size", 8.0)),
+                            bold=style_dict.get('bold', False),
+                            italic=style_dict.get('italic', False),
+                            underline=style_dict.get('underline', False),
+                            color=hex_to_rgb(style_dict.get('color', track.get("font_color", "#FFFFFF"))),
+                            alpha=style_dict.get('alpha', track.get("font_alpha", 1.0)),
+                            align=style_dict.get('align', 1),
+                            vertical=style_dict.get('vertical', track.get("vertical", False)),
+                            letter_spacing=style_dict.get('letter_spacing', 0),
+                            line_spacing=style_dict.get('line_spacing', 0)
+                        )
+                        
+                        border = None
+                        if border_dict.get('width', 0) > 0:
+                            border = Text_border(
+                                alpha=border_dict.get('alpha', 1.0),
+                                color=hex_to_rgb(border_dict.get('color', "#000000")),
+                                width=border_dict.get('width', 0)
+                            )
+                            
+                        style_range = TextStyleRange(
+                            start=style_data.get("start", 0),
+                            end=style_data.get("end", len(track.get("text", ""))),
+                            style=style,
+                            border=border,
+                            font_str=style_data.get("font", track.get("font"))
+                        )
+                        text_styles.append(style_range)
+
+                add_text_impl(
+                    text=track.get("text", "Text"),
+                    start=track.get("start", 0),
+                    end=end_time,
+                    draft_id=draft_id,
+                    transform_x=track.get("transform_x", 0),
+                    transform_y=track.get("transform_y", 0),
+                    font=track.get("font", None),
+                    font_size=track.get("font_size", 8.0),
+                    font_color=track.get("font_color", "#FFFFFF"),
+                    font_alpha=track.get("font_alpha", 1.0),
+                    track_name=track.get("track_name", f"template_text_{i}"),
+                    vertical=track.get("vertical", False),
+                    text_styles=text_styles,
+                    background_color=track.get("background_color", "#000000"),
+                    background_alpha=track.get("background_alpha", 0.0),
+                    border_color=track.get("border_color", "#000000"),
+                    border_width=track.get("border_width", 0.0),
+                    shadow_enabled=track.get("shadow_enabled", False),
+                    shadow_color=track.get("shadow_color", "#000000"),
+                    shadow_distance=track.get("shadow_distance", 5.0),
+                    shadow_alpha=track.get("shadow_alpha", 0.9)
+                )
+             except Exception as e:
+                 logger.error(f"Failed to apply template text: {e}")
+
+        # Apply Effect Tracks
+        for i, track in enumerate(tracks.get("effects", [])):
+             try:
+                # Determine end time
+                end_time = track.get("end", 0)
+                if track.get("is_full_duration", False) or end_time <= 0:
+                    end_time = total_duration_sec
+
+                add_effect_impl(
+                    effect_type=track.get("effect_type"),
+                    effect_category=track.get("effect_category", "scene"),
+                    start=track.get("start", 0),
+                    end=end_time,
+                    draft_id=draft_id,
+                    track_name=track.get("track_name", f"template_effect_{i}")
+                )
+             except Exception as e:
+                 logger.error(f"Failed to apply template effect: {e}")
+
+        # Apply Filter Tracks
+        for i, track in enumerate(tracks.get("filters", [])):
+             try:
+                # Determine end time
+                end_time = track.get("end", 0)
+                if track.get("is_full_duration", False) or end_time <= 0:
+                    end_time = total_duration_sec
+
+                add_effect_impl(
+                    effect_type=track.get("effect_type"),
+                    effect_category="filter",
+                    start=track.get("start", 0),
+                    end=end_time,
+                    draft_id=draft_id,
+                    track_name=track.get("track_name", f"template_filter_{i}")
+                )
+             except Exception as e:
+                 logger.error(f"Failed to apply template filter: {e}")
+
+    elif total_duration_sec > 0:
         logger.info(f"Adding rich draft elements. Duration: {total_duration_sec}s")
         
         # Add Watermark

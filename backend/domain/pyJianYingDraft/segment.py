@@ -131,9 +131,9 @@ class Clip_settings:
             rotation (float, optional): 顺时针旋转的**角度**, 可正可负. 默认为0.0.
             scale_x (float, optional): 水平缩放比例. 默认为1.0.
             scale_y (float, optional): 垂直缩放比例. 默认为1.0.
-            transform_x (float, optional): 水平位移, 单位为半个画布宽. 默认为0.0.
-            transform_y (float, optional): 垂直位移, 单位为半个画布高. 默认为0.0.
-                参考: 剪映导入的字幕似乎取此值为-0.8
+            transform_x (float, optional): 水平位移, 剪映使用像素坐标(可能随版本变化). 默认为0.0.
+            transform_y (float, optional): 垂直位移, 剪映使用像素坐标(可能随版本变化). 默认为0.0.
+                参考: 剪映导入的字幕似乎取此值为-0.8 (如果是归一化) 或 像素值
         """
         self.alpha = alpha
         self.flip_horizontal, self.flip_vertical = flip_horizontal, flip_vertical

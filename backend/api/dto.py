@@ -209,3 +209,12 @@ class GenerateBatchDraftRequest(BaseModel):
     draft_name: Optional[str] = None
     image_dir: Optional[str] = None
     image_crop_settings: Optional[dict] = None
+    template_id: Optional[str] = None
+
+class TemplateCreateRequest(BaseModel):
+    name: str
+    tracks: dict
+
+class TemplateUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    tracks: Optional[dict] = None

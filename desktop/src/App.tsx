@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './components/Sidebar'
 import GeneratorView from './components/GeneratorView'
+import TemplateManager from './components/TemplateManager'
 import SettingsModal from './components/SettingsModal'
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
       />
       <main className="flex-1 overflow-auto">
         {currentView === 'generator' && <GeneratorView />}
+        {currentView === 'templates' && <TemplateManager />}
         {/* Add other views here if needed */}
       </main>
       
