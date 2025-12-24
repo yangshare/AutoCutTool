@@ -3,7 +3,13 @@ import sys
 from logging.handlers import RotatingFileHandler
 import os
 
-def setup_logger(name: str = "CapCutApi", log_dir: str = "logs", level: int = logging.INFO):
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_LOG_DIR = os.path.join(BACKEND_ROOT, "logs")
+
+def setup_logger(name: str = "CapCutApi", log_dir: str = None, level: int = logging.INFO):
+    if log_dir is None:
+        log_dir = DEFAULT_LOG_DIR
+
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
 
