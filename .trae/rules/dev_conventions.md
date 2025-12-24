@@ -1,8 +1,9 @@
 ---
-alwaysApply: false
-description: 开发约定与协作规范（按需参考）
+alwaysApply: true
+description: 开发约定与协作规范（强约束）
 ---
 ### 协作约定
+*   **语言要求**：AI 在 Solo 模式下的 Plan、思考过程及最终回复必须**强制使用中文**。
 *   **前后端分离**：UI 放 `desktop/`，复杂处理走 `backend/` API
 *   **依赖管理**：后端用 `pip`（基于 `backend/pyproject.toml`），前端只用 `pnpm`
 *   **锁文件**：只保留 `desktop/pnpm-lock.yaml`；发现 `package-lock.json`/`yarn.lock` 删除

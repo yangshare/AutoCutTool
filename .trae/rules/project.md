@@ -1,6 +1,5 @@
 ---
-alwaysApply: false
-description: 项目规则索引（拆分为多文件）
+alwaysApply: true
 ---
 ### 规则拆分说明
 *   `startup.md`：启动强约束（alwaysApply）
