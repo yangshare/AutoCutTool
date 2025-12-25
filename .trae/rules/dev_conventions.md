@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+alwaysApply: false
 description: 开发约定与协作规范（强约束）
 ---
 ### 协作约定
@@ -21,13 +21,6 @@ description: 开发约定与协作规范（强约束）
     *   遵循 `ESLint` + `Prettier` 规则。
     *   组件命名：PascalCase (e.g., `MyComponent.tsx`)。
     *   函数/变量命名：camelCase。
-
-### 测试策略 (Testing)
-*   **后端**:
-    *   `domain/` 层必须包含单元测试。
-    *   使用 `pytest` 作为测试框架。
-*   **前端**:
-    *   工具函数 (`lib/utils.ts`) 需包含单元测试。
 
 ### Git 提交规范
 *   遵循 **Conventional Commits**：
